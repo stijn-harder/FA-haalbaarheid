@@ -748,7 +748,7 @@ async function scanLocatie(){
   const adres=adresVol();
   if(!$("adres").value.trim()){toast("Vul eerst het adres in bij Invullen.");return}
   const btn=$("loc-btn");btn.disabled=true;btn.textContent="Bezig met scannen…";
-  $("loc-body").innerHTML='<p class="stil" style="margin:12px 0 0">Locatie opzoeken, buurtcijfers en concurrenten ophalen. Dit duurt 5 tot 15 seconden.</p>';
+  $("loc-body").innerHTML='<p class="stil" style="margin:12px 0 0">Locatie opzoeken, buurtcijfers ophalen en Claude zoekt live de concurrenten op. Dit duurt 30 tot 90 seconden.</p>';
   try{
     const r=await fetch(LOC_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({adres,land:$("land").value,r1:5,r2:12})});
     if(!r.ok)throw new Error("status "+r.status);
@@ -786,20 +786,24 @@ function renderLoc(){
   const heeftDemo=a.inwoners>0;
   const [band,bandTxt]=prijsBand(a.pctHoogInkomen);
   const conc=Array.isArray(LOC.concurrenten)?LOC.concurrenten:null;
-  const c1=conc?conc.filter(c=>c.km<=(a.km||5)).length:null;
+  const c1=conc?conc.filter(c=>c.km!=null&&c.km<=(a.km||5)).length:null;
+  const prijzen=conc?conc.map(c=>c.prijs_vanaf).filter(x=>typeof x==="number"&&x>0).sort((x,y)=>x-y):[];
+  const pmed=prijzen.length?prijzen[Math.floor(prijzen.length/2)]:null;
   const aandeel=heeftDemo&&cap?cap/a.doelgroep15tot65*100:null;
   let h="";
   h+=`<div class="loc-kpis">
     <div><small>Prijsbereidheid (indicatie)</small><b>${heeftDemo?band:"-"}</b><em>${heeftDemo?bandTxt:"Geen buurtdata"}</em></div>
-    <div><small>Sportscholen binnen ${num(a.km||5)} km</small><b>${c1==null?"-":c1}</b><em>${c1&&heeftDemo?num(a.inwoners/c1)+" inwoners per sportschool":conc?"":"Volgt via Google"}</em></div>
+    <div><small>Sportscholen binnen ${num(a.km||5)} km</small><b>${c1==null?"-":c1}</b><em>${c1&&heeftDemo?num(a.inwoners/c1)+" inwoners per sportschool":conc?(pmed?"Mediaan prijs € "+num(pmed)+" p/mnd":""):""}</em></div>
     <div><small>Benodigd marktaandeel</small><b>${aandeel==null?"-":num(aandeel,1)+"%"}</b><em>${aandeel==null?"":num(cap)+" leden van de doelgroep binnen "+num(a.km||5)+" km"}</em></div>
   </div>`;
   if(heeftDemo)h+=`<div class="loc-grid">${col("Binnen "+num(a.km)+" km (± 10 min)",a)}${col("Binnen "+num(b.km)+" km (± 20 min)",b)}</div>`;
   else h+=`<p class="stil" style="margin:12px 0 0">${LOC.land==="BE"?"Buurtcijfers voor België volgen nog (Statbel). Concurrenten en ligging staan hieronder.":"Geen buurtcijfers gevonden rond dit adres."}</p>`;
   if(conc&&conc.length){
-    h+=`<div class="tbl conc"><table><thead><tr><th>km</th><th>Sportschool</th><th>Score</th><th>Reviews</th></tr></thead><tbody>${conc.slice(0,12).map(c=>`<tr><td>${num(c.km,1)}</td><td>${String(c.naam||"").replace(/</g,"&lt;")}<br><span class="stil">${String(c.adres||"").replace(/</g,"&lt;")}</span></td><td>${c.rating?num(c.rating,1):"-"}</td><td>${c.reviews?num(c.reviews):"-"}</td></tr>`).join("")}</tbody></table></div>`;
-  }else if(!conc){h+=`<p class="stil" style="margin:12px 0 0">Concurrenten via Google worden toegevoegd zodra de Google-koppeling aanstaat.</p>`}
-  h+=`<p class="stil" style="margin:12px 0 0">Bron: ${LOC.bron||"OpenStreetMap"}${conc?", Google":""}. 10 en 20 minuten benaderd als ${num(a.km||5)} en ${num(b.km||12)} km hemelsbreed. Prijsbereidheid is een FA-vuistregel op basis van het aandeel huishoudens met een hoog inkomen (landelijk gemiddelde 20%).</p>`;
+    const esc=x=>String(x||"").replace(/</g,"&lt;");
+    if(LOC.concSamenvatting)h+=`<p style="margin:14px 0 0;font-size:13px">${esc(LOC.concSamenvatting)}</p>`;
+    h+=`<div class="tbl conc"><table><thead><tr><th>km</th><th>Sportschool</th><th>Type</th><th>Vanaf p/mnd</th></tr></thead><tbody>${conc.slice(0,15).map(c=>`<tr><td>${c.km==null?"-":num(c.km,1)}</td><td>${esc(c.naam)}<br><span class="stil">${esc(c.adres)}</span></td><td>${esc(c.type)||"-"}</td><td>${typeof c.prijs_vanaf==="number"?"€ "+num(c.prijs_vanaf):"onbekend"}</td></tr>`).join("")}</tbody></table></div>`;
+  }else if(conc&&!conc.length){h+=`<p class="stil" style="margin:12px 0 0">${LOC.concFout?"Concurrenten ophalen lukte niet: "+String(LOC.concFout).replace(/</g,"&lt;"):"Geen concurrenten gevonden rond dit adres."}</p>`}
+  h+=`<p class="stil" style="margin:12px 0 0">Bronnen: ${LOC.bron?LOC.bron+", ":""}concurrenten live opgezocht door Claude op ${new Date(LOC.datum).toLocaleDateString("nl-NL")} (controleer prijzen en afstanden), kaart: OpenStreetMap. 10 en 20 minuten benaderd als ${num(a.km||5)} en ${num(b.km||12)} km hemelsbreed. Prijsbereidheid is een FA-vuistregel op basis van het aandeel huishoudens met een hoog inkomen (landelijk gemiddelde 20%).</p>`;
   box.innerHTML=h;
 }
 $("loc-btn").addEventListener("click",scanLocatie);
