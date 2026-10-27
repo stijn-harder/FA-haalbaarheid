@@ -213,6 +213,20 @@ td.uitleg{color:var(--muted);font-size:11px;text-align:left;max-width:28ch}
 ul.aan{margin:0;padding-left:18px;columns:2;column-gap:32px;font-size:12px}
 ul.aan li{break-inside:avoid;margin-bottom:6px}
 .voet{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:18px;padding-top:12px;border-top:1px solid var(--line)}
+.loc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+.loc-col{background:var(--soft);border-radius:12px;padding:14px;display:grid;gap:6px;font-size:13px}
+.loc-col h4{margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blue)}
+.loc-col div{display:flex;justify-content:space-between;gap:10px}
+.loc-col div span{color:var(--muted)}
+.loc-col b{font-variant-numeric:tabular-nums;text-align:right}
+.loc-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+.loc-kpis div{border:1px solid var(--line);border-radius:12px;padding:12px}
+.loc-kpis small{display:block;font-size:11px;color:var(--muted)}
+.loc-kpis b{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.loc-kpis em{display:block;font-style:normal;font-size:11px;color:var(--muted);margin-top:2px}
+.conc{margin-top:14px}
+.conc td:nth-child(2),.conc th:nth-child(2){text-align:left}
+@media (max-width:900px){.loc-grid,.loc-kpis{grid-template-columns:1fr}}
 .toast{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--navy);color:#fff;padding:11px 16px;border-radius:12px;font-size:13px;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .reveal{opacity:1}
 @media (prefers-reduced-motion:no-preference){
@@ -229,7 +243,7 @@ ul.aan li{break-inside:avoid;margin-bottom:6px}
 #rapport.print .card{background:#fff;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none;border-color:#D6E3EC}
 #rapport.print .card::before,#rapport.print .hero .blob{display:none}
 #rapport.print .scen{grid-template-columns:repeat(3,1fr)}
-#rapport.print .grid2{grid-template-columns:1fr 1fr}
+#rapport.print .grid2,#rapport.print .loc-grid{grid-template-columns:1fr 1fr}#rapport.print .loc-kpis{grid-template-columns:repeat(3,1fr)}#rapport.print #loc-btn{display:none}
 #rapport.print ul.aan{columns:2}
 
 @media (max-width:1080px){.layout{grid-template-columns:1fr}.preview{position:static}}
@@ -314,7 +328,7 @@ i.addEventListener("input",function(){m.textContent="";if(i.value.length===4)pro
           <div class="grid">
             <div class="f"><label for="klant">Klantnaam / club</label><div class="in"><input id="klant" type="text" autocomplete="off"></div></div>
             <div class="f"><label for="plaats">Plaats</label><div class="in"><input id="plaats" type="text" autocomplete="off"></div></div>
-            <div class="f"><label for="adres">Adres locatie</label><div class="in"><input id="adres" type="text" autocomplete="off"></div><small>Voor de locatiescan (volgt)</small></div>
+            <div class="f"><label for="adres">Adres locatie</label><div class="in"><input id="adres" type="text" autocomplete="off"></div><small>Straat, huisnummer en plaats. Voor de locatiescan</small></div>
             <div class="f"><label for="land">Land</label><div class="in"><select id="land"><option value="NL">Nederland</option><option value="BE">België</option></select></div><small>Zet btw en loonkostenfactor goed</small></div>
             <div class="f"><label for="m2">Oppervlakte</label><div class="in"><input id="m2" type="number" inputmode="decimal" min="0"><span>m²</span></div></div>
             <div class="f"><label for="door">Ingevuld door</label><div class="in"><input id="door" type="text" value="Stijn Harder"></div></div>
@@ -426,6 +440,14 @@ i.addEventListener("input",function(){m.textContent="";if(i.value.length===4)pro
       </div>
 
       <div class="scen" data-blok id="r-scen"></div>
+
+      <div class="card" data-blok id="loc-blok">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+          <div><h3>Locatiescan</h3><p class="stil" style="margin:2px 0 0" id="loc-sub">Doelgroep, koopkracht en concurrentie rond de locatie</p></div>
+          <button class="btn ghost" id="loc-btn">Scan de locatie</button>
+        </div>
+        <div id="loc-body"><p class="stil" style="margin:12px 0 0">Vul bij Invullen het adres in en klik op "Scan de locatie".</p></div>
+      </div>
 
       <div class="grid2" data-blok>
         <div class="card"><h3>Ledenontwikkeling</h3><p class="stil" style="margin:2px 0 0">Eerste 36 maanden, met break-even (midden)</p><div class="cbox"><canvas id="c-leden"></canvas></div>
@@ -642,6 +664,7 @@ function render(){
   ];
   $("r-aan").innerHTML=aan.map(a=>`<li>${a.replace(/</g,"&lt;")}</li>`).join("");
   drawCharts(S,true);
+  renderLoc();
   if(!RM){document.querySelectorAll("#rapport [data-blok]").forEach((el,i)=>{el.classList.remove("go");void el.offsetWidth;el.style.animationDelay=(i*70)+"ms";el.classList.add("reveal","go")})}
 }
 let lastS=null;
@@ -673,7 +696,7 @@ function toon(v){
   $("v-invullen").hidden=v!=="invullen";$("v-resultaat").hidden=v!=="resultaat";
   $("tab-invullen").setAttribute("aria-current",v==="invullen");$("tab-resultaat").setAttribute("aria-current",v==="resultaat");
   $("btn-res").hidden=v==="resultaat";$("btn-pdf").hidden=v!=="resultaat";$("btn-nieuw").hidden=v==="resultaat";
-  if(v==="resultaat")render();
+  if(v==="resultaat"){render();if($("adres").value.trim()&&(!LOC||LOC.voorAdres!==adresVol()))scanLocatie();}
   if(location.hash!=="#"+v){try{history.replaceState(null,"","#"+v)}catch(e){}}
   window.scrollTo(0,0);
 }
@@ -716,6 +739,71 @@ document.addEventListener("pointermove",e=>{const c=e.target.closest&&e.target.c
 try{window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{live();if(!$("v-resultaat").hidden&&lastS)drawCharts(lastS,false)})}catch(e){}
 new MutationObserver(()=>{if(!$("rapport").classList.contains("print")){live();if(!$("v-resultaat").hidden&&lastS)drawCharts(lastS,false)}}).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
 
+/* ---------- Locatiescan ---------- */
+const LOC_URL="https://n8n-omkg.srv1968938.hstgr.cloud/webhook/fa-locatiescan";
+const LOCKEY="fa-haalbaarheid-loc";
+let LOC=null;try{LOC=JSON.parse(localStorage.getItem(LOCKEY)||"null")}catch(e){}
+const adresVol=()=>[$("adres").value.trim(),$("plaats").value.trim()].filter(Boolean).join(", ");
+async function scanLocatie(){
+  const adres=adresVol();
+  if(!$("adres").value.trim()){toast("Vul eerst het adres in bij Invullen.");return}
+  const btn=$("loc-btn");btn.disabled=true;btn.textContent="Bezig met scannen…";
+  $("loc-body").innerHTML='<p class="stil" style="margin:12px 0 0">Locatie opzoeken, buurtcijfers en concurrenten ophalen. Dit duurt 5 tot 15 seconden.</p>';
+  try{
+    const r=await fetch(LOC_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({adres,land:$("land").value,r1:5,r2:12})});
+    if(!r.ok)throw new Error("status "+r.status);
+    const d=await r.json();
+    if(!d.ok){$("loc-body").innerHTML=`<p class="melding" style="margin-top:12px">${(d.fout||"De scan gaf geen resultaat.").replace(/</g,"&lt;")}</p>`;return}
+    d.voorAdres=adres;d.datum=new Date().toISOString();LOC=d;try{localStorage.setItem(LOCKEY,JSON.stringify(d))}catch(e){}
+    renderLoc();
+  }catch(e){
+    $("loc-body").innerHTML='<p class="melding" style="margin-top:12px">De locatiescan is niet bereikbaar. In de claude.ai-versie werkt hij niet; gebruik de GitHub-link. Werkt het daar ook niet, probeer het dan zo opnieuw.</p>';
+  }finally{btn.disabled=false;btn.textContent="Opnieuw scannen"}
+}
+function prijsBand(pct){
+  if(pct==null)return["onbekend",""];
+  const i=pct/20;
+  if(i>=1.5)return["High end","€110+ per maand haalbaar"];
+  if(i>=1.15)return["Premium","€70 tot €110 per maand"];
+  if(i>=0.7)return["Midden","€40 tot €70 per maand"];
+  return["Budget","€25 tot €40 per maand"];
+}
+function renderLoc(){
+  const box=$("loc-body");
+  if(!LOC){box.innerHTML='<p class="stil" style="margin:12px 0 0">Vul bij Invullen het adres in en klik op "Scan de locatie".</p>';$("loc-btn").textContent="Scan de locatie";return}
+  if(LOC.voorAdres!==adresVol()){$("loc-sub").textContent="Let op: het adres is gewijzigd sinds deze scan. Scan opnieuw.";}else $("loc-sub").textContent=LOC.adres||"";
+  $("loc-btn").textContent="Opnieuw scannen";
+  const a=LOC.ring1||{},b=LOC.ring2||{},cap=n("cap");
+  const nl=x=>x==null?"-":num(x), e=x=>x==null?"-":eur(x), pc=x=>x==null?"-":num(x,1)+"%";
+  const col=(t,r)=>`<div class="loc-col"><h4>${t}</h4>
+    <div><span>Inwoners</span><b>${nl(r.inwoners)}</b></div>
+    <div><span>Doelgroep 15 tot 65 jaar</span><b>${nl(r.doelgroep15tot65)}</b></div>
+    <div><span>65-plussers</span><b>${nl(r.plus65)}</b></div>
+    <div><span>Huishoudens</span><b>${nl(r.huishoudens)}</b></div>
+    <div><span>Gem. inkomen per inwoner</span><b>${e(r.inkomenPerInwoner)}</b></div>
+    <div><span>Gem. WOZ-waarde</span><b>${e(r.woz)}</b></div>
+    <div><span>Huishoudens met hoog inkomen</span><b>${pc(r.pctHoogInkomen)}</b></div></div>`;
+  const heeftDemo=a.inwoners>0;
+  const [band,bandTxt]=prijsBand(a.pctHoogInkomen);
+  const conc=Array.isArray(LOC.concurrenten)?LOC.concurrenten:null;
+  const c1=conc?conc.filter(c=>c.km<=(a.km||5)).length:null;
+  const aandeel=heeftDemo&&cap?cap/a.doelgroep15tot65*100:null;
+  let h="";
+  h+=`<div class="loc-kpis">
+    <div><small>Prijsbereidheid (indicatie)</small><b>${heeftDemo?band:"-"}</b><em>${heeftDemo?bandTxt:"Geen buurtdata"}</em></div>
+    <div><small>Sportscholen binnen ${num(a.km||5)} km</small><b>${c1==null?"-":c1}</b><em>${c1&&heeftDemo?num(a.inwoners/c1)+" inwoners per sportschool":conc?"":"Volgt via Google"}</em></div>
+    <div><small>Benodigd marktaandeel</small><b>${aandeel==null?"-":num(aandeel,1)+"%"}</b><em>${aandeel==null?"":num(cap)+" leden van de doelgroep binnen "+num(a.km||5)+" km"}</em></div>
+  </div>`;
+  if(heeftDemo)h+=`<div class="loc-grid">${col("Binnen "+num(a.km)+" km (± 10 min)",a)}${col("Binnen "+num(b.km)+" km (± 20 min)",b)}</div>`;
+  else h+=`<p class="stil" style="margin:12px 0 0">${LOC.land==="BE"?"Buurtcijfers voor België volgen nog (Statbel). Concurrenten en ligging staan hieronder.":"Geen buurtcijfers gevonden rond dit adres."}</p>`;
+  if(conc&&conc.length){
+    h+=`<div class="tbl conc"><table><thead><tr><th>km</th><th>Sportschool</th><th>Score</th><th>Reviews</th></tr></thead><tbody>${conc.slice(0,12).map(c=>`<tr><td>${num(c.km,1)}</td><td>${String(c.naam||"").replace(/</g,"&lt;")}<br><span class="stil">${String(c.adres||"").replace(/</g,"&lt;")}</span></td><td>${c.rating?num(c.rating,1):"-"}</td><td>${c.reviews?num(c.reviews):"-"}</td></tr>`).join("")}</tbody></table></div>`;
+  }else if(!conc){h+=`<p class="stil" style="margin:12px 0 0">Concurrenten via Google worden toegevoegd zodra de Google-koppeling aanstaat.</p>`}
+  h+=`<p class="stil" style="margin:12px 0 0">Bron: ${LOC.bron||"OpenStreetMap"}${conc?", Google":""}. 10 en 20 minuten benaderd als ${num(a.km||5)} en ${num(b.km||12)} km hemelsbreed. Prijsbereidheid is een FA-vuistregel op basis van het aandeel huishoudens met een hoog inkomen (landelijk gemiddelde 20%).</p>`;
+  box.innerHTML=h;
+}
+$("loc-btn").addEventListener("click",scanLocatie);
+
 // Init
 laad(); if(!$("datum").value)$("datum").value=new Date().toISOString().slice(0,10); landDefaults(false); live();
 document.querySelectorAll("#v-invullen input, #v-invullen select").forEach(el=>el.addEventListener("input",()=>{live();bewaar()}));
@@ -727,7 +815,7 @@ $("btn-pdf").addEventListener("click",maakPdf);
 let nieuwArm=false;
 $("btn-nieuw").addEventListener("click",()=>{
   if(!nieuwArm){nieuwArm=true;$("btn-nieuw").textContent="Zeker? Klik nogmaals";$("btn-nieuw").classList.add("danger");setTimeout(()=>{nieuwArm=false;$("btn-nieuw").textContent="Nieuwe klant";$("btn-nieuw").classList.remove("danger")},3000);return}
-  VELDEN.forEach(k=>{if(k!=="door"&&k!=="land")$(k).value=""});$("datum").value=new Date().toISOString().slice(0,10);landDefaults(true);$("pv-rows").innerHTML="";live();bewaar();nieuwArm=false;$("btn-nieuw").textContent="Nieuwe klant";$("btn-nieuw").classList.remove("danger");toast("Leeg gemaakt voor een nieuwe klant.");
+  VELDEN.forEach(k=>{if(k!=="door"&&k!=="land")$(k).value=""});$("datum").value=new Date().toISOString().slice(0,10);landDefaults(true);$("pv-rows").innerHTML="";LOC=null;try{localStorage.removeItem(LOCKEY)}catch(e){};live();bewaar();nieuwArm=false;$("btn-nieuw").textContent="Nieuwe klant";$("btn-nieuw").classList.remove("danger");toast("Leeg gemaakt voor een nieuwe klant.");
 });
 window.addEventListener("hashchange",()=>toon(location.hash==="#resultaat"?"resultaat":"invullen"));
 toon(location.hash==="#resultaat"?"resultaat":"invullen");
